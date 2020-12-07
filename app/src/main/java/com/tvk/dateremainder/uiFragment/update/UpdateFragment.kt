@@ -1,10 +1,15 @@
 package com.tvk.dateremainder.uiFragment.update
 
-import android.app.TimePickerDialog
+import android.app.*
+import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,12 +17,15 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContentProviderCompat
+import androidx.core.content.ContextCompat.getSystemService
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+
 import com.tvk.dateremainder.R
 import com.tvk.dateremainder.model.ScheduleEntity
+import com.tvk.dateremainder.notification.RemainderBroadcast
 import com.tvk.dateremainder.viewmodel.ScheduleLiveViewModel
 import kotlinx.android.synthetic.main.fragment_update.*
 import java.text.SimpleDateFormat
@@ -25,6 +33,8 @@ import java.util.*
 
 
 class UpdateFragment : Fragment() {
+
+
 
     private val args by navArgs<UpdateFragmentArgs>()
     private lateinit var scheduleLiveViewModel:ScheduleLiveViewModel
@@ -34,10 +44,12 @@ class UpdateFragment : Fragment() {
 
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
+   override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
-        // Inflate the layout for this fragment
+
         val root = inflater.inflate(R.layout.fragment_update, container, false)
+       createNotificationChannel()
+
 
         root.findViewById<EditText>(R.id.editTextTextPersonName_update).setText(args.currenttask.who)
         root.findViewById<EditText>(R.id.editTextTextdesc_update).setText(args.currenttask.desc)
@@ -45,6 +57,7 @@ class UpdateFragment : Fragment() {
         root.findViewById<EditText>(R.id.editTextdate_update).setText(args.currenttask.date)
 
         scheduleLiveViewModel  = ViewModelProvider(this).get(ScheduleLiveViewModel::class.java)
+
         root.findViewById<Button>(R.id.updatebutton).setOnClickListener {
             updatetodb()
         }
@@ -60,6 +73,73 @@ class UpdateFragment : Fragment() {
         return root;
     }
 
+    fun startAlarm(time: String,date: String) {
+
+        var  HOUR = time[0].toString() + time[1].toString()
+        var  MIN = time[3].toString() + time[4].toString()
+
+
+
+
+        val alarmManager = requireActivity().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        var  intent= Intent(context, RemainderBroadcast::class.java);
+        intent.putExtra("who",args.currenttask.who)
+        intent.putExtra("desc",args.currenttask.desc)
+        var  pendingIntent = PendingIntent.getBroadcast(context,args.currenttask.alarm_req_code,intent, PendingIntent.FLAG_ONE_SHOT);
+
+        var list:List<String> = edittextdatedivider(date)
+
+        if(time[6].toString()=="P"){
+            HOUR=(HOUR.toInt()+12).toString()
+        }
+
+        Log.i("hOUR",list[0])
+        val calendar = Calendar.getInstance()
+
+       calendar[Calendar.MONTH]=list[1].toInt()-1
+        calendar[Calendar.DAY_OF_MONTH]=list[0].toInt()
+        calendar[Calendar.HOUR_OF_DAY] = HOUR.toInt()
+        calendar[Calendar.MINUTE] =MIN.toInt()
+        calendar[Calendar.SECOND] = 0
+        val startUpTime = calendar.timeInMillis
+
+     /*  alarmManager.setRepeating(
+            AlarmManager.RTC_WAKEUP, startUpTime,startUpTime,
+             pendingIntent
+        )*/
+
+        alarmManager.set(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+1000*10
+                ,pendingIntent)
+    }
+
+    private fun createNotificationChannel() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = getString(R.string.channel_name)
+            val descriptionText = getString(R.string.channel_description)
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel("notifyLemubit", name, importance).apply {
+                description = descriptionText
+            }
+            // Register the channel with the system
+            val notificationManager: NotificationManager =
+                    requireActivity().getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+    private fun edittextdatedivider(date:String):List<String>{
+         lateinit var list:List<String>;
+
+        if(date.contains("/")  ){
+          list =   date.split("/")
+        }
+        else if(date.contains("-") ){
+           list =  date.split("-")
+        }
+        return list
+
+    }
+
     private fun updatetodb(){
         val who = editTextTextPersonName_update.text.toString()
         val desc = editTextTextdesc_update.text.toString()
@@ -73,10 +153,12 @@ class UpdateFragment : Fragment() {
                     who,
                     desc,
                     time,
-                    date
+                    date,
+                    args.currenttask.alarm_req_code
                 )
             scheduleLiveViewModel.updateSchedule(scheduleEntity)
             Toast.makeText(requireContext(),"Successfully Updated", Toast.LENGTH_LONG).show()
+            startAlarm(time,date)
              findNavController().navigate(R.id.action_updateFragment_to_nav_home)
         }else{
             Toast.makeText(requireContext(),"Fill out the fields", Toast.LENGTH_LONG).show()
@@ -125,8 +207,17 @@ class UpdateFragment : Fragment() {
     }
 
     private fun deleteTask(currentItem:ScheduleEntity){
+        lateinit var mAlarmMgr: AlarmManager;
+        lateinit var mAlarmIntent:PendingIntent;
+
         val builder = AlertDialog.Builder(requireContext())
         builder.setPositiveButton("Yes"){_,_->
+
+            mAlarmMgr = requireActivity().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, RemainderBroadcast::class.java)
+            mAlarmIntent = PendingIntent.getBroadcast(context, args.currenttask.alarm_req_code, intent, PendingIntent.FLAG_ONE_SHOT)
+            mAlarmMgr.cancel(mAlarmIntent)
+
             scheduleLiveViewModel.deleteTask(currentItem)
             Toast.makeText(requireContext(),"Successfully Deleted", Toast.LENGTH_LONG).show()
             findNavController().navigate(R.id.action_updateFragment_to_nav_home)

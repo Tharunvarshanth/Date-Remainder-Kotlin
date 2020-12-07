@@ -14,5 +14,6 @@ data class ScheduleEntity (
         @ColumnInfo(name = "who") val who:String,
         @ColumnInfo(name = "description") val desc:String,
         @ColumnInfo(name = "time")val time:String,
-        @ColumnInfo(name = "date") val date:String
+        @ColumnInfo(name = "date") val date:String,
+        @ColumnInfo(name = "alarm_req_code") val alarm_req_code:Int
 ):Parcelable

@@ -1,6 +1,7 @@
 package com.tvk.dateremainder.uiFragment.home
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.tvk.dateremainder.R
+import com.tvk.dateremainder.model.ScheduleEntity
 import com.tvk.dateremainder.viewmodel.ScheduleLiveViewModel
 import kotlinx.android.synthetic.main.recyclerview_item.view.*
 
@@ -19,6 +21,14 @@ class HomeSchdeuleViewFragment : Fragment() {
 
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var scheduleLiveViewModel: ScheduleLiveViewModel
+
+    companion object {
+       var recycleviewSize:Int=0
+         var alarmlist:List<ScheduleEntity> = emptyList()
+
+
+    }
+
 
 
     override fun onCreateView(
@@ -36,16 +46,20 @@ class HomeSchdeuleViewFragment : Fragment() {
 
         //Recycle view
         val adapter = ListAdapter()
+
         val recyclerView = root.findViewById<RecyclerView>(R.id.recyclerview)
           recyclerView.adapter = adapter
+
         recyclerView.layoutManager  = LinearLayoutManager(requireContext())
 
         scheduleLiveViewModel = ViewModelProvider(this).get(ScheduleLiveViewModel::class.java)
        scheduleLiveViewModel.readAllData.observe(viewLifecycleOwner, Observer { t->
+
            adapter.setData(t)
+         alarmlist=t
+
+           recycleviewSize = adapter.itemCount
        })
-
-
 
 
 
@@ -54,7 +68,9 @@ class HomeSchdeuleViewFragment : Fragment() {
 
 
 
+fun setAllAlarms(){
 
+}
 
 
 
